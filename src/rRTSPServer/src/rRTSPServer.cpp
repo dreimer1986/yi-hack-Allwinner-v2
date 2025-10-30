@@ -462,6 +462,16 @@ void *capture(void *ptr)
 #ifdef USE_SEMAPHORE
     sem_write_lock();
 #endif
+
+    // Autodetect offset if not defined
+    if (input_buffer.offset == FRAME_OFFSET_AUTODETECT) {
+        std::memcpy(&i, input_buffer.buffer + FRAME_OFFSET_TRY_1, sizeof(i));
+        if (i != 0)
+            input_buffer.offset = FRAME_OFFSET_TRY_1;
+        else
+            input_buffer.offset = FRAME_OFFSET_TRY_2;
+    }
+
     std::memcpy(&i, input_buffer.buffer + 16, sizeof(i));
     buf_idx = input_buffer.buffer + input_buffer.offset + i;
     buf_idx_cur = buf_idx;
@@ -491,6 +501,7 @@ void *capture(void *ptr)
         }
         usleep(1000);
     }
+    if (debug & 3) fprintf(stderr, "%lld: capture - frame offset = %d\n", current_timestamp(), input_buffer.offset);
     if (debug & 3) fprintf(stderr, "%lld: capture - frame header size = %d\n", current_timestamp(), frame_header_size);
 
     if (debug & 3) fprintf(stderr, "%lld: capture - starting capture main loop\n", current_timestamp());
@@ -854,7 +865,7 @@ void *capture(void *ptr)
                     of.time = frame_time;
                     p_output_queue->frame_queue.push(of);
                     free(tmp_out);
-                    while (p_output_queue->frame_queue.size() > 10) p_output_queue->frame_queue.pop();
+                    while (p_output_queue->frame_queue.size() > MAX_QUEUE_SIZE) p_output_queue->frame_queue.pop();
 
                     if (debug & 3) {
                         fprintf(stderr, "%lld: h264/aac in - frame_len: %d - frame_counter: %d - resolution: %d\n", current_timestamp(), frame_len, frame_counter, frame_type);
