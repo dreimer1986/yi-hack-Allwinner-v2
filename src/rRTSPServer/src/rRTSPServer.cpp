@@ -1207,7 +1207,7 @@ int main(int argc, char** argv)
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
-            if ((debug < 0) || (debug > 15)) {
+            if ((debug < 0) || (debug > 31)) {
                 print_usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
