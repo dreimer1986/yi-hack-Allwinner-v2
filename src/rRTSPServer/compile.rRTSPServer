@@ -24,9 +24,9 @@ cd $SCRIPT_DIR
 cd libhelix-aac || exit 1
 make clean
 make -j $(nproc) || exit 1
-mkdir ../live/lib/
+mkdir -p ../live/lib/
 cp -f ./libhelix-aac.a ../live/lib/
-mkdir ../live/include/libhelix-aac
+mkdir -p ../live/include/libhelix-aac
 cp -f ./aaccommon.h ../live/include/libhelix-aac
 cp -f ./aacdec.h ../live/include/libhelix-aac
 cp -f ./statname.h ../live/include/libhelix-aac
