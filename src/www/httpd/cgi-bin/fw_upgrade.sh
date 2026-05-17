@@ -27,7 +27,7 @@ if [ "$VAL" == "info" ] ; then
 
     MODEL_SUFFIX=`cat $YI_HACK_PREFIX/model_suffix`
     FW_VERSION=`cat $YI_HACK_PREFIX/version`
-    LATEST_FW=`/tmp/sd/yi-hack/usr/bin/wget -O -  https://api.github.com/repos/roleoroleo/yi-hack-Allwinner-v2/releases/latest 2>&1 | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'`
+    LATEST_FW=`/tmp/sd/yi-hack/usr/bin/wget -O -  https://api.github.com/repos/dreimer1986/yi-hack-Allwinner-v2/releases/latest 2>&1 | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'`
     if [ -f /tmp/sd/${MODEL_SUFFIX}_x.x.x.tgz ]; then
         LOCAL_FW="true"
     else
@@ -72,14 +72,14 @@ elif [ "$VAL" == "upgrade" ] ; then
         mv /tmp/sd/${MODEL_SUFFIX}_x.x.x.tgz /tmp/sd/.fw_upgrade/${MODEL_SUFFIX}_x.x.x.tgz
         LATEST_FW="x.x.x"
     else
-        LATEST_FW=`/tmp/sd/yi-hack/usr/bin/wget -O -  https://api.github.com/repos/roleoroleo/yi-hack-Allwinner-v2/releases/latest 2>&1 | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'`
+        LATEST_FW=`/tmp/sd/yi-hack/usr/bin/wget -O -  https://api.github.com/repos/dreimer1986/yi-hack-Allwinner-v2/releases/latest 2>&1 | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'`
         if [ "$FW_VERSION" == "$LATEST_FW" ]; then
             printf "Content-type: text/html\r\n\r\n"
             printf "No new firmware available."
             exit
         fi
 
-        /tmp/sd/yi-hack/usr/bin/wget https://github.com/roleoroleo/yi-hack-Allwinner-v2/releases/download/$LATEST_FW/${MODEL_SUFFIX}_${LATEST_FW}.tgz
+        /tmp/sd/yi-hack/usr/bin/wget https://github.com/dreimer1986/yi-hack-Allwinner-v2/releases/download/$LATEST_FW/${MODEL_SUFFIX}_${LATEST_FW}.tgz
         if [ ! -f ${MODEL_SUFFIX}_${LATEST_FW}.tgz ]; then
             printf "Content-type: text/html\r\n\r\n"
             printf "Unable to download firmware file."
