@@ -30,6 +30,7 @@ echo "############## Starting Hack ##############"
 echo "### Hacking"
 if [ `grep telnetd /backup/init.sh | grep -c ^` -gt 0 ]; then
     echo "Hack already applied"
+    echo "Hack already applied" > /tmp/sd/hack_result.txt
 else
     echo "Applying hack"
 
@@ -52,7 +53,30 @@ else
     echo "fi" >> /tmp/init.sh
 
     cp /tmp/init.sh /backup/init.sh
+    sync
+
+    if [ "$(md5sum </tmp/init.sh)" != "$(md5sum </backup/init.sh)" ]; then
+        echo "ERROR: /backup write failed (df: $(df /backup | tail -1))"
+        echo "Try again"
+        rm -f /backup/init.sh
+        sync
+
+        cp /tmp/init.sh /backup/init.sh
+        sync
+
+        if [ "$(md5sum </tmp/init.sh)" != "$(md5sum </backup/init.sh)" ]; then
+            echo "ERROR: /backup write failed (df: $(df /backup | tail -1))"
+            echo "Hack failed"
+            rm -f /backup/init.sh
+            sync
+
+            echo "Hack failed" > /tmp/sd/hack_result.txt
+        fi
+    fi
+
     rm /tmp/init.sh
+
+    echo "Hack completed successfully" > /tmp/sd/hack_result.txt
 fi
 
 ### Set wireless credentials if configure_wifi.cfg exists
