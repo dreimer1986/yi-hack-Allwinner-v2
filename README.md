@@ -20,6 +20,7 @@ What's the difference between v1 and v2? Allwinner-v2 is not an upgrade for Allw
 - [Supported cameras](#supported-cameras)
 - [Is my cam supported?](#is-my-cam-supported)
 - [Home Assistant integration](#home-assistant-integration)
+- [Frigate integration](#frigate-integration)
 - [Build your own firmware](#build-your-own-firmware)
 - [Unbricking](#unbricking)
 - [License](#license)
@@ -202,6 +203,77 @@ data:
   message: "All your base are belong to us."
   volume: '-8'
 ``` 
+
+## Frigate integration
+
+Frigate can consume the RTSP streams directly. Enable the RTSP server in the camera web interface and use one of these stream URLs:
+
+- `rtsp://IP-CAM/ch0_0.h264` - high resolution
+- `rtsp://IP-CAM/ch0_1.h264` - low resolution
+- `rtsp://IP-CAM/ch0_2.h264` - audio only
+
+For a minimal setup, use the low resolution stream for detection to reduce load on the camera:
+
+```yaml
+cameras:
+  yi_camera:
+    ffmpeg:
+      inputs:
+        - path: rtsp://IP-CAM/ch0_1.h264
+          roles:
+            - detect
+```
+
+If you need a higher quality stream for recording, add the high resolution stream as a separate input:
+
+```yaml
+cameras:
+  yi_camera:
+    ffmpeg:
+      inputs:
+        - path: rtsp://IP-CAM/ch0_1.h264
+          roles:
+            - detect
+        - path: rtsp://IP-CAM/ch0_0.h264
+          roles:
+            - record
+```
+
+If authentication is enabled in the camera web interface, include the configured username and password in the RTSP URL:
+
+```yaml
+path: rtsp://user:password@IP-CAM/ch0_1.h264
+```
+
+### PTZ through ONVIF
+
+For models with PTZ support, enable the ONVIF server in the camera web interface and add an `onvif` section to the Frigate camera configuration. The ONVIF port is the camera HTTP port, usually `80` unless you changed it.
+
+```yaml
+cameras:
+  yi_ptz_camera:
+    ffmpeg:
+      inputs:
+        - path: rtsp://IP-CAM/ch0_1.h264
+          roles:
+            - detect
+    onvif:
+      host: IP-CAM
+      port: 80
+      user: ""
+      password: ""
+```
+
+If ONVIF authentication is enabled, replace the empty strings with the camera credentials. If ONVIF authentication is disabled, keep `user: ""` and `password: ""`; some Frigate versions expect these keys even when the camera allows anonymous ONVIF access.
+
+Frigate shows PTZ controls only when its ONVIF connection succeeds and the camera model exposes PTZ commands. Not all supported cameras have PTZ hardware.
+
+### Notes
+
+- These cameras have limited CPU and RAM. Avoid enabling more camera-side services than needed.
+- If the camera becomes unstable, enable the swap file and prefer a single low resolution stream for detection.
+- Snapshots and multiple simultaneous streams may increase memory pressure.
+
 ## Telegram Control System
 
 A complete remote surveillance and control system: control your camera, receive automatic alerts, and communicate bidirectionally — all through a Telegram bot.
