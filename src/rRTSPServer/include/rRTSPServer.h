@@ -27,6 +27,7 @@
 
 #include <queue>
 #include <vector>
+#include <atomic>
 
 #include <sys/types.h>
 
@@ -240,8 +241,8 @@ struct __attribute__((__packed__)) frame_header_28 {
 };
 
 struct stream_type_s {
-    int codec_low;
-    int codec_high;
+    std::atomic<int> codec_low;
+    std::atomic<int> codec_high;
     int sps_type_low;
     int sps_type_high;
     int vps_type_low;

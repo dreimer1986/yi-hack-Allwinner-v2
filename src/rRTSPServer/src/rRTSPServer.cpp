@@ -614,7 +614,7 @@ void *capture(void *ptr)
                         stream_type.sps_type_low = 0x0000;
                     }
                     if ((debug & 1) && (stream_type.codec_low != CODEC_NONE)) fprintf(stderr, "%lld: h264 in - low - codec type is %d - sps type is %d\n",
-                            current_timestamp(), stream_type.codec_low, stream_type.sps_type_low);
+                            current_timestamp(), stream_type.codec_low.load(), stream_type.sps_type_low);
                 } else if ((stream_type.codec_high  == CODEC_NONE) && (fhs[i].type & 0x0400)) {
                     if (cb_memcmp(SPS4_1920X1080, buf_idx_cur, sizeof(SPS4_1920X1080)) == 0) {
                         stream_type.codec_high = CODEC_H264;
@@ -651,7 +651,7 @@ void *capture(void *ptr)
                         stream_type.sps_type_high = 0x0000;
                     }
                     if ((debug & 1) && (stream_type.codec_high != CODEC_NONE)) fprintf(stderr, "%lld: h264 in - high - codec type is %d - sps type is %d\n",
-                            current_timestamp(), stream_type.codec_high, stream_type.sps_type_high);
+                            current_timestamp(), stream_type.codec_high.load(), stream_type.sps_type_high);
                 }
             } else {
                 buf_idx_cur = cb_move(buf_idx_cur, frame_header_size);
