@@ -102,6 +102,7 @@ int AudioFramedMemorySource::check_sync_word(unsigned char *str)
 }
 
 void AudioFramedMemorySource::doStopGettingFrames() {
+    envir().taskScheduler().unscheduleDelayedTask(nextTask());
     fHaveStartedReading = False;
 }
 

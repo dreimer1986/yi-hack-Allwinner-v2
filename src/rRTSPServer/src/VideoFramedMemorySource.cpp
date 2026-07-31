@@ -83,6 +83,7 @@ void VideoFramedMemorySource::seekToByteRelative(int64_t offset, u_int64_t numBy
 }
 
 void VideoFramedMemorySource::doStopGettingFrames() {
+    envir().taskScheduler().unscheduleDelayedTask(nextTask());
     fHaveStartedReading = False;
 }
 
