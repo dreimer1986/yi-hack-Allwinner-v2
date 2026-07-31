@@ -837,13 +837,18 @@ void *capture(void *ptr)
                         copy_src = input_buffer.read_index;
                     }
 
-                    output_frame of;
-                    of.frame.resize(frame_len);
-                    cb2s_memcpy(of.frame.data(), copy_src, frame_len);
-                    of.counter = frame_counter;
-                    of.time = frame_time;
-                    p_output_queue->frame_queue.push(std::move(of));
-                    while (p_output_queue->frame_queue.size() > MAX_QUEUE_SIZE) p_output_queue->frame_queue.pop();
+                    // Guard against a corrupt/short frame
+                    if (frame_len > 0) {
+                        output_frame of;
+                        of.frame.resize(frame_len);
+                        cb2s_memcpy(of.frame.data(), copy_src, frame_len);
+                        of.counter = frame_counter;
+                        of.time = frame_time;
+                        p_output_queue->frame_queue.push(std::move(of));
+                        while (p_output_queue->frame_queue.size() > MAX_QUEUE_SIZE) p_output_queue->frame_queue.pop();
+                    } else {
+                        fprintf(stderr, "%lld: h264/aac in - warning - invalid frame_len %d, frame dropped\n", current_timestamp(), frame_len);
+                    }
 
                     if (debug & 3) {
                         fprintf(stderr, "%lld: h264/aac in - frame_len: %d - frame_counter: %d - resolution: %d\n", current_timestamp(), frame_len, frame_counter, frame_type);
