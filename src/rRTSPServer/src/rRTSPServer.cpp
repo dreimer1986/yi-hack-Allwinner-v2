@@ -782,7 +782,7 @@ void *capture(void *ptr)
 
                 if (p_output_queue != NULL) {
                     if (debug & 3) fprintf(stderr, "%lld: h264/aac in - frame_len: %d - cb_current->size: %d\n", current_timestamp(), frame_len, p_output_queue->frame_queue.size());
-                    pthread_mutex_lock(&(p_output_queue->mutex));
+                    // Build the frame outside the lock
                     input_buffer.read_index = buf_idx_start;
                     unsigned char *copy_src = input_buffer.read_index;
 
@@ -874,11 +874,14 @@ void *capture(void *ptr)
                     if (frame_len > 0) {
                         output_frame of;
                         of.frame.resize(frame_len);
-                        cb2s_memcpy(of.frame.data(), copy_src, frame_len);
+                        cb2s_memcpy(of.frame.data(), copy_src, frame_len);   // copy outside the lock
                         of.counter = frame_counter;
                         of.time = frame_time;
+                        // Lock only for the queue push + overflow trim
+                        pthread_mutex_lock(&(p_output_queue->mutex));
                         p_output_queue->frame_queue.push(std::move(of));
                         while (p_output_queue->frame_queue.size() > MAX_QUEUE_SIZE) p_output_queue->frame_queue.pop();
+                        pthread_mutex_unlock(&(p_output_queue->mutex));
                     } else {
                         fprintf(stderr, "%lld: h264/aac in - warning - invalid frame_len %d, frame dropped\n", current_timestamp(), frame_len);
                     }
@@ -886,7 +889,6 @@ void *capture(void *ptr)
                     if (debug & 3) {
                         fprintf(stderr, "%lld: h264/aac in - frame_len: %d - frame_counter: %d - resolution: %d\n", current_timestamp(), frame_len, frame_counter, frame_type);
                     }
-                    pthread_mutex_unlock(&(p_output_queue->mutex));
                 }
             }
         }

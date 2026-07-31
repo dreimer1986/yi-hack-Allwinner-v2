@@ -27,6 +27,7 @@
 #include <cstring>
 #include <queue>
 #include <vector>
+#include <utility>
 
 unsigned char NALU_HEADER[] = { 0x00, 0x00, 0x00, 0x01 };
 
@@ -128,6 +129,7 @@ void VideoFramedMemorySource::doGetNextFrame() {
 
     if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() start - fMaxSize %d - fLimitNumBytesToStream %d\n", current_timestamp(), fMaxSize, fLimitNumBytesToStream);
 
+    output_frame f;
     while (!frameFound) {
         pthread_mutex_lock(&(fQBuffer->mutex));
         if (fQBuffer->frame_queue.size() == 0) {
@@ -139,11 +141,11 @@ void VideoFramedMemorySource::doGetNextFrame() {
             nextTask() = envir().taskScheduler().scheduleDelayedTask(2000,
                                  (TaskFunc*)FramedSource::afterGetting, this);
             return;
-        } else if (fQBuffer->frame_queue.front().frame.size() == 0) {
-            // Drop the bad (empty) frame instead of spin-waiting on it
+        } else if (fQBuffer->frame_queue.front().frame.size() < 5) {
+            // Too small, drop it
             fQBuffer->frame_queue.pop();
             pthread_mutex_unlock(&(fQBuffer->mutex));
-            fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - NULL ptr\n", current_timestamp());
+            fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - bad frame (too small)\n", current_timestamp());
         } else if (memcmp(NALU_HEADER, fQBuffer->frame_queue.front().frame.data(), sizeof(NALU_HEADER)) != 0) {
             // Maybe the buffer is too small, align read index with write index
             if (fQBuffer->frame_queue.size() > 0) {
@@ -166,45 +168,38 @@ void VideoFramedMemorySource::doGetNextFrame() {
                 pthread_mutex_unlock(&(fQBuffer->mutex));
                 if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() resync - skipping orphan frame\n", current_timestamp());
             } else {
+                // Deliver this frame: take ownership and release the lock before the copy below
+                f = std::move(fQBuffer->frame_queue.front());
+                fQBuffer->frame_queue.pop();
+                pthread_mutex_unlock(&(fQBuffer->mutex));
                 frameFound = true;
             }
         }
     }
 
-    if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() size of queue is %d\n", current_timestamp(), fQBuffer->frame_queue.size());
-
-    // Frame found, send it
-    unsigned char *ptr;
-    unsigned char nal;
-    int size = fQBuffer->frame_queue.front().frame.size();
-    uint32_t frame_time = fQBuffer->frame_queue.front().time;
-    u_int32_t frame_counter = (u_int32_t) fQBuffer->frame_queue.front().counter;
-    ptr = fQBuffer->frame_queue.front().frame.data();
-    // Remove nalu header before sending the frame to FramedSource
-    ptr += 4 * sizeof(unsigned char);
-    size -= 4 * sizeof(unsigned char);
-    nal = ptr[0];
+    // Frame found (owned by 'f', lock already released)
+    int size = (int) f.frame.size();
+    uint32_t frame_time = f.time;
+    u_int32_t frame_counter = (u_int32_t) f.counter;
+    unsigned char *ptr = f.frame.data() + 4;
+    size -= 4;
+    unsigned char nal = ptr[0];
 
     if ((unsigned) size <= fFrameSize) {
-        // The size of the frame is smaller than the available buffer
+        // The frame fits in the available buffer
         fFrameSize = size;
         if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() whole frame - fFrameSize %d - fMaxSize %d - counter %d - time %u\n",
-                current_timestamp(), fFrameSize, fMaxSize, fQBuffer->frame_queue.front().counter, frame_time);
+                current_timestamp(), fFrameSize, fMaxSize, frame_counter, frame_time);
         std::memcpy(fTo, ptr, size);
-        fQBuffer->frame_queue.pop();
-        pthread_mutex_unlock(&(fQBuffer->mutex));
         fNumTruncatedBytes = 0;
         // Frame delivered: remember its sequence counter
         fLastCounter = frame_counter;
         fHaveLastCounter = True;
     } else {
-        // The size of the frame is greater than the available buffer
-        fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - the size of the frame is greater than the available buffer %d/%d\n", current_timestamp(), fFrameSize, fMaxSize);
+        // The frame is larger than the available buffer: drop it
         fFrameSize = 0;
-        fQBuffer->frame_queue.pop();
-        pthread_mutex_unlock(&(fQBuffer->mutex));
         fNumTruncatedBytes = 0;
-        fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() frame lost\n", current_timestamp());
+        fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - frame larger than buffer %d/%d - frame lost\n", current_timestamp(), size, fMaxSize);
     }
 
     if (!fUseTimeForPres) {
