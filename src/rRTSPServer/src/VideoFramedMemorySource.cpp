@@ -32,6 +32,22 @@ unsigned char NALU_HEADER[] = { 0x00, 0x00, 0x00, 0x01 };
 
 extern int debug;
 
+// Return True if the NAL unit is a decoder sync point
+static Boolean isSyncFrame(int hNumber, unsigned char const* frame, unsigned size) {
+    if (size < 5) return False;
+    unsigned char nalHdr = frame[4];
+    if (hNumber == 264) {
+        unsigned nut = nalHdr & 0x1F;
+        // 5 = IDR slice, 7 = SPS, 8 = PPS
+        return (nut == 5 || nut == 7 || nut == 8) ? True : False;
+    } else if (hNumber == 265) {
+        unsigned nut = (nalHdr >> 1) & 0x3F;
+        // 16..23 = IRAP (BLA/IDR/CRA), 32 = VPS, 33 = SPS, 34 = PPS
+        return ((nut >= 16 && nut <= 23) || nut == 32 || nut == 33 || nut == 34) ? True : False;
+    }
+    return True;
+}
+
 ////////// VideoFramedMemorySource //////////
 
 VideoFramedMemorySource*
@@ -52,7 +68,8 @@ VideoFramedMemorySource::VideoFramedMemorySource(UsageEnvironment& env,
                                                         unsigned playTimePerFrame)
     : FramedSource(env), fHNumber(hNumber), fQBuffer(qBuffer),
       fCurIndex(0), fUseTimeForPres(useTimeForPres), fPlayTimePerFrame(playTimePerFrame), fLastPlayTime(0),
-      fLimitNumBytesToStream(False), fNumBytesToStream(0), fHaveStartedReading(False) {
+      fLimitNumBytesToStream(False), fNumBytesToStream(0), fHaveStartedReading(False),
+      fHaveLastCounter(False), fLastCounter(0) {
 
     if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - fPlayTimePerFrame %u\n", current_timestamp(), fPlayTimePerFrame);
 }
@@ -90,9 +107,10 @@ void VideoFramedMemorySource::doGetNextFrame() {
             usleep(2000);
             pthread_mutex_lock(&(fQBuffer->mutex));
         }
-        while (fQBuffer->frame_queue.size() > 5) fQBuffer->frame_queue.pop();
         pthread_mutex_unlock(&(fQBuffer->mutex));
         fHaveStartedReading = True;
+        // Force a resync to a keyframe/parameter-set before delivering the first frame
+        fHaveLastCounter = False;
     }
 
     if (fLimitNumBytesToStream && fNumBytesToStream == 0) {
@@ -131,7 +149,22 @@ void VideoFramedMemorySource::doGetNextFrame() {
             pthread_mutex_unlock(&(fQBuffer->mutex));
             fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - wrong frame header\n", current_timestamp());
         } else {
-            frameFound = true;
+            // Keyframe-aware resync: after a discontinuity (frames dropped on
+            // queue overflow, or a fresh (re)start) resume only at a decoder
+            // sync point
+            u_int32_t counter = (u_int32_t) fQBuffer->frame_queue.front().counter;
+            Boolean discontinuity = (!fHaveLastCounter) ||
+                                    (counter != ((fLastCounter + 1) & 0xFFFF));
+            if (discontinuity &&
+                !isSyncFrame(fHNumber,
+                             fQBuffer->frame_queue.front().frame.data(),
+                             fQBuffer->frame_queue.front().frame.size())) {
+                fQBuffer->frame_queue.pop();
+                pthread_mutex_unlock(&(fQBuffer->mutex));
+                if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() resync - skipping orphan frame\n", current_timestamp());
+            } else {
+                frameFound = true;
+            }
         }
     }
 
@@ -142,6 +175,7 @@ void VideoFramedMemorySource::doGetNextFrame() {
     unsigned char nal;
     int size = fQBuffer->frame_queue.front().frame.size();
     uint32_t frame_time = fQBuffer->frame_queue.front().time;
+    u_int32_t frame_counter = (u_int32_t) fQBuffer->frame_queue.front().counter;
     ptr = fQBuffer->frame_queue.front().frame.data();
     // Remove nalu header before sending the frame to FramedSource
     ptr += 4 * sizeof(unsigned char);
@@ -157,6 +191,9 @@ void VideoFramedMemorySource::doGetNextFrame() {
         fQBuffer->frame_queue.pop();
         pthread_mutex_unlock(&(fQBuffer->mutex));
         fNumTruncatedBytes = 0;
+        // Frame delivered: remember its sequence counter
+        fLastCounter = frame_counter;
+        fHaveLastCounter = True;
     } else {
         // The size of the frame is greater than the available buffer
         fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - the size of the frame is greater than the available buffer %d/%d\n", current_timestamp(), fFrameSize, fMaxSize);
