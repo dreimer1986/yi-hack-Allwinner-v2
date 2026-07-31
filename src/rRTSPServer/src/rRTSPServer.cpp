@@ -41,6 +41,7 @@
 #include <algorithm>
 #include <queue>
 #include <vector>
+#include <utility>
 
 #include <getopt.h>
 #include <pthread.h>
@@ -750,7 +751,7 @@ void *capture(void *ptr)
                     if (debug & 3) fprintf(stderr, "%lld: h264/aac in - frame_len: %d - cb_current->size: %d\n", current_timestamp(), frame_len, p_output_queue->frame_queue.size());
                     pthread_mutex_lock(&(p_output_queue->mutex));
                     input_buffer.read_index = buf_idx_start;
-                    unsigned char *tmp_out;
+                    unsigned char *copy_src = input_buffer.read_index;
 
                     if (sps_timing_info) {
                         // Overwrite SPS or VPS with one that contains timing info at 20 fps
@@ -758,113 +759,90 @@ void *capture(void *ptr)
                             if (frame_type == TYPE_LOW) {
                                 if (stream_type.sps_type_low & 0x0101) {
                                     frame_len = sizeof(SPS4_640X360_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS4_640X360_TI, frame_len);
+                                    copy_src = SPS4_640X360_TI;
                                 } else if (stream_type.sps_type_low & 0x0201) {
                                     frame_len = sizeof(SPS4_2_640X360_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS4_2_640X360_TI, frame_len);
+                                    copy_src = SPS4_2_640X360_TI;
                                 } else if (stream_type.sps_type_low & 0x0401) {
                                     frame_len = sizeof(SPS4_3_640X360_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS4_3_640X360_TI, frame_len);
+                                    copy_src = SPS4_3_640X360_TI;
                                 } else {
                                     // don't change frame_len
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, input_buffer.read_index, frame_len);
+                                    copy_src = input_buffer.read_index;
                                 }
                             } else if (frame_type == TYPE_HIGH) {
                                 if (stream_type.sps_type_high == 0x0102) {
                                     frame_len = sizeof(SPS4_1920X1080_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS4_1920X1080_TI, frame_len);
+                                    copy_src = SPS4_1920X1080_TI;
                                 } else if (stream_type.sps_type_high == 0x0202) {
                                     frame_len = sizeof(SPS4_2_1920X1080_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS4_2_1920X1080_TI, frame_len);
+                                    copy_src = SPS4_2_1920X1080_TI;
                                 } else if (stream_type.sps_type_high == 0x0402) {
                                     frame_len = sizeof(SPS4_3_1920X1080_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS4_3_1920X1080_TI, frame_len);
+                                    copy_src = SPS4_3_1920X1080_TI;
                                 } else if (stream_type.sps_type_high == 0x0103) {
                                     frame_len = sizeof(SPS4_2304X1296_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS4_2304X1296_TI, frame_len);
+                                    copy_src = SPS4_2304X1296_TI;
                                 } else if (stream_type.sps_type_high == 0x0203) {
                                     frame_len = sizeof(SPS4_2_2304X1296_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS4_2_2304X1296_TI, frame_len);
+                                    copy_src = SPS4_2_2304X1296_TI;
                                 } else if (stream_type.sps_type_high == 0x0403) {
                                     frame_len = sizeof(SPS4_3_2304X1296_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS4_3_2304X1296_TI, frame_len);
+                                    copy_src = SPS4_3_2304X1296_TI;
 /*                                } else if (stream_type.sps_type_high & 0x0802) {
                                     frame_len = sizeof(SPS5_1920X1080_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS5_1920X1080_TI, frame_len);
+                                    copy_src = SPS5_1920X1080_TI;
                                 } else if (stream_type.sps_type_high & 0x1002) {
                                     frame_len = sizeof(SPS5_2_1920X1080_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS5_2_1920X1080_TI, frame_len);
+                                    copy_src = SPS5_2_1920X1080_TI;
                                 } else if (stream_type.sps_type_high & 0x2002) {
                                     frame_len = sizeof(SPS5_3_2304X1296_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, SPS5_3_2304X1296_TI, frame_len); */
+                                    copy_src = SPS5_3_2304X1296_TI; */
                                 } else {
                                     // don't change frame_len
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, input_buffer.read_index, frame_len);
+                                    copy_src = input_buffer.read_index;
                                 }
                             } else {
                                 // don't change frame_len
-                                tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                cb2s_memcpy(tmp_out, input_buffer.read_index, frame_len);
+                                copy_src = input_buffer.read_index;
                             }
                         } else if (fhs[i].type & 0x0008) {
                             if (frame_type == TYPE_LOW) {
                                 // don't change frame_len
-                                tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                cb2s_memcpy(tmp_out, input_buffer.read_index, frame_len);
+                                copy_src = input_buffer.read_index;
                             } else if (frame_type == TYPE_HIGH) {
 /*                                if (stream_type.sps_type_high == 0x0802) {
                                     frame_len = sizeof(VPS5_1920X1080_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, VPS5_1920X1080_TI, frame_len);
+                                    copy_src = VPS5_1920X1080_TI;
                                 } else if (stream_type.sps_type_high == 0x1002) {
                                     frame_len = sizeof(VPS5_2_1920X1080_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, VPS5_2_1920_1080_TI, frame_len);
+                                    copy_src = VPS5_2_1920_1080_TI;
                                 } else if (stream_type.sps_type_high == 0x2002) {
                                     frame_len = sizeof(VPS5_3_2304X1296_TI);
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, VPS5_3_2304X1296_TI, frame_len);
+                                    copy_src = VPS5_3_2304X1296_TI;
                                 } else { */
                                     // don't change frame_len
-                                    tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                    cb2s_memcpy(tmp_out, input_buffer.read_index, frame_len);
+                                    copy_src = input_buffer.read_index;
 /*                                } */
                             } else {
                                 // don't change frame_len
-                                tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                                cb2s_memcpy(tmp_out, input_buffer.read_index, frame_len);
+                                copy_src = input_buffer.read_index;
                             }
                         } else {
                             // don't change frame_len
-                            tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                            cb2s_memcpy(tmp_out, input_buffer.read_index, frame_len);
+                            copy_src = input_buffer.read_index;
                         }
 
                     } else {
-                        tmp_out = (unsigned char *) malloc(frame_len * sizeof(unsigned char));
-                        cb2s_memcpy(tmp_out, input_buffer.read_index, frame_len);
+                        copy_src = input_buffer.read_index;
                     }
 
                     output_frame of;
-                    of.frame = {tmp_out, tmp_out + frame_len};
+                    of.frame.resize(frame_len);
+                    cb2s_memcpy(of.frame.data(), copy_src, frame_len);
                     of.counter = frame_counter;
                     of.time = frame_time;
-                    p_output_queue->frame_queue.push(of);
-                    free(tmp_out);
+                    p_output_queue->frame_queue.push(std::move(of));
                     while (p_output_queue->frame_queue.size() > MAX_QUEUE_SIZE) p_output_queue->frame_queue.pop();
 
                     if (debug & 3) {
