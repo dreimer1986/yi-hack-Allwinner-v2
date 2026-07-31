@@ -238,11 +238,44 @@ UsageEnvironment* env;
 Boolean reuseFirstSource = True;
 
 long long current_timestamp() {
-    struct timeval te; 
+    struct timeval te;
     gettimeofday(&te, NULL); // get current time
     long long milliseconds = te.tv_sec*1000LL + te.tv_usec/1000; // calculate milliseconds
 
     return milliseconds;
+}
+
+/*
+ * Map a camera frame timestamp (uint32 ms since boot, wraps ~every 49 days,
+ * not wall-clock) to a real wall-clock presentation time suitable for RTP/RTCP.
+ *
+ * A single anchor (camera_ms <-> wall clock) is captured on the first call and
+ * shared by every source. Each source then maps through the SAME affine
+ * function, so the relative timing between audio and video is preserved exactly
+ * (perfect A/V sync) while presentation times become real wall-clock (correct
+ * RTCP sender reports). The uint32 subtraction handles the camera-clock wrap
+ * transparently for any session shorter than ~49 days since the anchor.
+ *
+ * Must be called only from the (single-threaded) live555 event loop, so the
+ * function-local state needs no locking.
+ */
+void frametime_to_presentation(uint32_t frame_time, struct timeval *pt) {
+    static bool anchored = false;
+    static struct timeval anchor_wall;
+    static uint32_t anchor_ft;
+
+    if (!anchored) {
+        gettimeofday(&anchor_wall, NULL);
+        anchor_ft = frame_time;
+        anchored = true;
+        *pt = anchor_wall;
+        return;
+    }
+
+    uint32_t delta_ms = frame_time - anchor_ft;   // modular: handles the wrap
+    uint64_t usec = (uint64_t) anchor_wall.tv_usec + (uint64_t)(delta_ms % 1000) * 1000;
+    pt->tv_sec  = anchor_wall.tv_sec + (time_t)(delta_ms / 1000) + (time_t)(usec / 1000000);
+    pt->tv_usec = (long)(usec % 1000000);
 }
 
 /* Locate a string in the circular buffer */

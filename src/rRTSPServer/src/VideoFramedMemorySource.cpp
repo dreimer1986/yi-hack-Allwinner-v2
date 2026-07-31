@@ -208,8 +208,7 @@ void VideoFramedMemorySource::doGetNextFrame() {
     }
 
     if (!fUseTimeForPres) {
-        fPresentationTime.tv_usec = (frame_time % 1000) * 1000;
-        fPresentationTime.tv_sec = frame_time / 1000;
+        frametime_to_presentation(frame_time, &fPresentationTime);
     } else {
         // Set the 'presentation time':
         // Use system clock to set presentation time

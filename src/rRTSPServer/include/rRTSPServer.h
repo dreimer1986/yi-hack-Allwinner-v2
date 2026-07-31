@@ -30,6 +30,7 @@
 #include <atomic>
 
 #include <sys/types.h>
+#include <sys/time.h>
 
 #define BUFFER_FILE "/dev/shm/fshare_frame_buf"
 #define BUFFER_SHM "fshare_frame_buf"
@@ -250,5 +251,6 @@ struct stream_type_s {
 };
 
 long long current_timestamp();
+void frametime_to_presentation(uint32_t frame_time, struct timeval *pt);
 
 #endif
