@@ -100,14 +100,15 @@ void VideoFramedMemorySource::doGetNextFrame() {
 
     if (!fHaveStartedReading) {
         if (debug & 4) fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() 1st start\n", current_timestamp());
+        // Do NOT block the (single-threaded) event loop
         pthread_mutex_lock(&(fQBuffer->mutex));
-        // Yes, I know that I should not block the event loop
-        while (fQBuffer->frame_queue.size() < 5) {
-            pthread_mutex_unlock(&(fQBuffer->mutex));
-            usleep(2000);
-            pthread_mutex_lock(&(fQBuffer->mutex));
-        }
+        unsigned qSize = fQBuffer->frame_queue.size();
         pthread_mutex_unlock(&(fQBuffer->mutex));
+        if (qSize < 5) {
+            nextTask() = envir().taskScheduler().scheduleDelayedTask(2000,
+                                 doGetNextFrameTask, this);
+            return;
+        }
         fHaveStartedReading = True;
         // Force a resync to a keyframe/parameter-set before delivering the first frame
         fHaveLastCounter = False;
@@ -138,9 +139,10 @@ void VideoFramedMemorySource::doGetNextFrame() {
                                  (TaskFunc*)FramedSource::afterGetting, this);
             return;
         } else if (fQBuffer->frame_queue.front().frame.size() == 0) {
+            // Drop the bad (empty) frame instead of spin-waiting on it
+            fQBuffer->frame_queue.pop();
             pthread_mutex_unlock(&(fQBuffer->mutex));
             fprintf(stderr, "%lld: VideoFramedMemorySource - doGetNextFrame() error - NULL ptr\n", current_timestamp());
-            usleep(2000);
         } else if (memcmp(NALU_HEADER, fQBuffer->frame_queue.front().frame.data(), sizeof(NALU_HEADER)) != 0) {
             // Maybe the buffer is too small, align read index with write index
             if (fQBuffer->frame_queue.size() > 0) {

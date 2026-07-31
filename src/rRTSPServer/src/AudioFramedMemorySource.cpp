@@ -116,16 +116,19 @@ void AudioFramedMemorySource::doGetNextFrameEx() {
 
 void AudioFramedMemorySource::doGetNextFrame() {
     Boolean frameFound = false;
-    Boolean isFirstReading = !fHaveStartedReading;
+
     if (!fHaveStartedReading) {
         if (debug & 8) fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() 1st start\n", current_timestamp());
+        // Do NOT block the (single-threaded) event loop
         pthread_mutex_lock(&(fQBuffer->mutex));
-        // Yes, I know that I should not block the event loop
-        while (fQBuffer->frame_queue.size() < 5) {
+        unsigned qSize = fQBuffer->frame_queue.size();
+        if (qSize < 5) {
             pthread_mutex_unlock(&(fQBuffer->mutex));
-            usleep(2000);
-            pthread_mutex_lock(&(fQBuffer->mutex));
+            nextTask() = envir().taskScheduler().scheduleDelayedTask(2000,
+                                 doGetNextFrameTask, this);
+            return;
         }
+        // Keep only the most recent frames to reduce initial latency.
         while (fQBuffer->frame_queue.size() > 5) fQBuffer->frame_queue.pop();
         pthread_mutex_unlock(&(fQBuffer->mutex));
         fHaveStartedReading = True;
@@ -147,9 +150,10 @@ void AudioFramedMemorySource::doGetNextFrame() {
                                  (TaskFunc*)FramedSource::afterGetting, this);
             return;
         } else if (fQBuffer->frame_queue.front().frame.size() == 0) {
+            // Drop the bad (empty) frame instead of spin-waiting on it
+            fQBuffer->frame_queue.pop();
             pthread_mutex_unlock(&(fQBuffer->mutex));
             fprintf(stderr, "%lld: AudioFramedMemorySource - doGetNextFrame() error - NULL ptr\n", current_timestamp());
-            usleep(2000);
         } else if (check_sync_word(fQBuffer->frame_queue.front().frame.data()) != 1) {
             if (fQBuffer->frame_queue.size() > 0) {
                 fQBuffer->frame_queue.pop();
