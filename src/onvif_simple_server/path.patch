@@ -1,7 +1,7 @@
 diff -Naur onvif_simple_server.ori/onvif_notify_server.c onvif_simple_server/onvif_notify_server.c
 --- onvif_simple_server.ori/onvif_notify_server.c	2025-05-20 16:04:41.566106647 +0200
 +++ onvif_simple_server/onvif_notify_server.c	2025-05-19 21:58:06.946512597 +0200
-@@ -39,11 +39,11 @@
+@@ -40,11 +40,11 @@
  #include "log.h"
  #include "onvif_simple_server.h"
  
@@ -36,7 +36,7 @@ diff -Naur onvif_simple_server.ori/onvif_simple_server.c onvif_simple_server/onv
 diff -Naur onvif_simple_server.ori/wsd_simple_server.c onvif_simple_server/wsd_simple_server.c
 --- onvif_simple_server.ori/wsd_simple_server.c	2025-05-20 16:06:31.857058818 +0200
 +++ onvif_simple_server/wsd_simple_server.c	2025-05-19 20:17:54.965288550 +0200
-@@ -38,8 +38,8 @@
+@@ -42,8 +42,8 @@
  #define PORT 3702
  #define TYPE "NetworkVideoTransmitter"
  
