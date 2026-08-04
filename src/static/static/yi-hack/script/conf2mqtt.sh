@@ -1,5 +1,7 @@
 #!/bin/sh
 
+export LD_LIBRARY_PATH=/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib:/tmp/sd:/tmp/sd/gdb:/tmp/sd/yi-hack/lib
+
 TMPFILE=$(LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | dd bs=1 count=16 2>/dev/null)
 TMPFILE=/tmp/$TMPFILE.tmp
 
