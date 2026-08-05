@@ -65,6 +65,11 @@ private:
     Boolean fLimitNumBytesToStream;
     u_int64_t fNumBytesToStream; // used iff "fLimitNumBytesToStream" is True
     Boolean fHaveStartedReading;
+    Boolean fHaveLastCounter;
+    u_int32_t fLastCounter;
+    bool fHaveAnchor;
+    struct timeval fAnchorWall;
+    uint32_t fAnchorFt;
 };
 
 #endif
