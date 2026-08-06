@@ -919,7 +919,11 @@ int main(int argc, char **argv)
         // Remove headers
         if (fhv_addr != NULL) fhv_addr = cb_move(fhv_addr, frame_header_size);
         fhs_addr = cb_move(fhs_addr, frame_header_size + 6);
-        fhs.len -= 6;
+        if (fhs.len >= 6) {
+            fhs.len -= 6;
+        } else {
+            fhs.len = 0;
+        }
         fhp_addr = cb_move(fhp_addr, frame_header_size);
         fhi_addr = cb_move(fhi_addr, frame_header_size);
 
