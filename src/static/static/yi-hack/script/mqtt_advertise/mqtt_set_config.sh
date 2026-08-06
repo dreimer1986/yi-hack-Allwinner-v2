@@ -2,6 +2,13 @@
 
 export LD_LIBRARY_PATH=/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib:/tmp/sd:/tmp/sd/gdb:/tmp/sd/yi-hack/lib
 
+# Fix "STDIN Wake": if there is no terminal (boot/cron), re-run the script
+if [ ! -t 0 ] && [ -z "$MQTT_STDIN_FIXED" ]; then
+    export MQTT_STDIN_FIXED=1
+    sleep 60 | "$0" "$@"
+    exit $?
+fi
+
 YI_HACK_PREFIX="/tmp/sd/yi-hack"
 
 CONFIG_SET="script/mqtt_advertise/mqtt_adv_config.sh"
