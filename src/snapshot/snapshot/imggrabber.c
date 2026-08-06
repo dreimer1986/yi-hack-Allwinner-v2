@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 roleo.
+ * Copyright (c) 2026 roleo.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -359,7 +359,7 @@ void sem_write_unlock()
 }
 #endif
 
-int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26x)
+int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26x, int max_width, int max_height)
 {
     const AVCodec *codec;
     AVCodecContext *c= NULL;
@@ -437,6 +437,14 @@ int frame_decode(unsigned char *outbuffer, unsigned char *p, int length, int h26
     }
     if(!got_picture) {
         if (debug) fprintf(stderr, "No input frame\n");
+        av_frame_free(&picture);
+        avcodec_free_context(&c);
+        return -2;
+    }
+
+    if (c->width > max_width || c->height > max_height) {
+        if (debug) fprintf(stderr, "Decoded frame %dx%d larger than buffer %dx%d, skipping\n",
+                c->width, c->height, max_width, max_height);
         av_frame_free(&picture);
         avcodec_free_context(&c);
         return -2;
@@ -1078,7 +1086,7 @@ int main(int argc, char **argv)
 
     if (fhv_addr == NULL) {
         if (debug) fprintf(stderr, "Decoding h264 frame\n");
-        if(frame_decode(bufferyuv, bufferh26x, fhs.len + fhp.len + fhi.len, 4) < 0) {
+        if(frame_decode(bufferyuv, bufferh26x, fhs.len + fhp.len + fhi.len, 4, width, height) < 0) {
             fprintf(stderr, "Error decoding h264 frame\n");
             if (bufferh26x != NULL) free(bufferh26x);
             if (bufferyuv != NULL) free(bufferyuv);
@@ -1098,7 +1106,7 @@ int main(int argc, char **argv)
         }
     } else {
         if (debug) fprintf(stderr, "Decoding h265 frame\n");
-        if(frame_decode(bufferyuv, bufferh26x, fhv.len + fhs.len + fhp.len + fhi.len, 5) < 0) {
+        if(frame_decode(bufferyuv, bufferh26x, fhv.len + fhs.len + fhp.len + fhi.len, 5, width, height) < 0) {
             fprintf(stderr, "Error decoding h265 frame\n");
             if (bufferh26x != NULL) free(bufferh26x);
             if (bufferyuv != NULL) free(bufferyuv);
