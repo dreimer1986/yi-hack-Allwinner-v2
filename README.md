@@ -154,7 +154,8 @@ Currently this project supports only the following cameras:
 | Yi Dome Guard | QFUS | 9.0.46* | r35gb | - |
 | Yi Dome Guard | QFUS | 12.1.47* | r35gb | - |
 | Yi Dome Guard | YRS | 9.0.46* | r35gb | - |
-| Yi Dome Guard | YRS | 12.1.47* | r35gb | - |
+| Yi Dome Guard | YRS | 12.1.47* | r35gb or r37gb | https://github.com/roleoroleo/yi-hack-Allwinner-v2/issues/1156 |
+| Yi Dome Guard | RFUS | 12.1.47* | r35gb or r37gb | https://github.com/roleoroleo/yi-hack-Allwinner-v2/issues/1156 |
 | Yi Pro 2K Home | RFUS - YFUS - ZFUS | 12.0.51* | y623 | - |
 | Kami mini home | IFUS | 9.0.20* | y28ga | - |
 | MIBAO G1 1296p dome | - | 9.0.04* | qg311r | - |
