@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
 
 env:
   SUNXI_TOOLCHAIN: /opt/yi/toolchain-sunxi-musl
