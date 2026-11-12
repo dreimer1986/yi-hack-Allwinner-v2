@@ -42,20 +42,26 @@ check_rtsp()
         SOCKET=`$YI_HACK_PREFIX/bin/netstat -an 2>&1 | grep ":$RTSP_PORT_NUMBER " | grep ESTABLISHED | grep -c ^`
         CPU=`top -b -n 2 -d 1 | grep rRTSPServer | grep -v grep | tail -n 1 | awk '{print $8}'`
 
+        # One restart at most per loop: the first failing check restarts the server
         if [ $LISTEN -eq 0 ]; then
             echo "$(date +'%Y-%m-%d %H:%M:%S') - Restarting rtsp process" >> $LOG_FILE
             killall -q rRTSPServer
             sleep 1
             restart_rtsp
-        fi
-        if [ "$CPU" == "" ]; then
+            COUNTER=0
+        elif [ "$CPU" == "" ]; then
             echo "$(date +'%Y-%m-%d %H:%M:%S') - No running processes, restarting..." >> $LOG_FILE
             killall -q rRTSPServer
             sleep 1
             restart_rtsp
             COUNTER=0
-        fi
-        if [ $SOCKET -gt 0 ]; then
+        elif [ -z "$(printf "OPTIONS rtsp://127.0.0.1:$RTSP_PORT_NUMBER/ RTSP/1.0\r\nCSeq: 1\r\n\r\n" | $YI_HACK_PREFIX/usr/bin/nc -w 5 127.0.0.1 $RTSP_PORT_NUMBER 2>/dev/null)" ]; then
+            echo "$(date +'%Y-%m-%d %H:%M:%S') - RTSP not answering, restarting..." >> $LOG_FILE
+            killall -q rRTSPServer
+            sleep 1
+            restart_rtsp
+            COUNTER=0
+        elif [ $SOCKET -gt 0 ]; then
             if [ "$CPU" == "0.0" ]; then
                 COUNTER=$((COUNTER+1))
                 echo "$(date +'%Y-%m-%d %H:%M:%S') - Detected possible locked process ($COUNTER)" >> $LOG_FILE
@@ -89,8 +95,7 @@ check_rtsp_alt()
             killall -q h264grabber
             sleep 1
             restart_rtsp
-        fi
-        if [ "$CPU1" == "" ] || [ "$CPU2" == "" ]; then
+        elif [ "$CPU1" == "" ] || [ "$CPU2" == "" ]; then
             echo "$(date +'%Y-%m-%d %H:%M:%S') - No running processes, restarting..." >> $LOG_FILE
             killall -q rtsp_server_yi
             killall -q h264grabber
@@ -117,8 +122,7 @@ check_rtsp_go2rtc()
             killall -q h264grabber
             sleep 1
             restart_rtsp
-        fi
-        if [ "$CPU1" == "" ] || [ "$CPU2" == "" ]; then
+        elif [ "$CPU1" == "" ] || [ "$CPU2" == "" ]; then
             echo "$(date +'%Y-%m-%d %H:%M:%S') - No running processes, restarting..." >> $LOG_FILE
             killall -q go2rtc
             killall -q h264grabber
@@ -217,14 +221,8 @@ check_wifi()
     if [ $WIFI_CONNECTED -eq 0 ]; then
         if ifconfig wlan0 2>/dev/null | grep -q "inet addr:"; then
             WIFI_CONNECTED=1
-        fi
-    fi
-
-    # Method 3: Additional check - interface carrier state
-    if [ $WIFI_CONNECTED -eq 0 ]; then
-        if [ -f /sys/class/net/wlan0/carrier ]; then
-            CARRIER=$(cat /sys/class/net/wlan0/carrier 2>/dev/null)
-            if [ "$CARRIER" != "1" ]; then
+            # Method 3: the address stays after the link drops, so also require carrier
+            if [ "$(cat /sys/class/net/wlan0/carrier 2>/dev/null)" == "0" ]; then
                 WIFI_CONNECTED=0
             fi
         fi

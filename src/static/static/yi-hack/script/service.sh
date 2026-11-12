@@ -121,6 +121,16 @@ init_config()
     else
         ONVIF_ENABLE_MEDIA2=0
     fi
+    if [[ $(get_config ONVIF_ENABLE_IMAGING) == "yes" ]] ; then
+        ONVIF_ENABLE_IMAGING=1
+    else
+        ONVIF_ENABLE_IMAGING=0
+    fi
+    if [[ $(get_config ONVIF_EMPTY_IF_UNKNOWN) == "yes" ]] ; then
+        ONVIF_EMPTY_IF_UNKNOWN=1
+    else
+        ONVIF_EMPTY_IF_UNKNOWN=0
+    fi
     if [[ $(get_config ONVIF_FAULT_IF_UNKNOWN) == "yes" ]] ; then
         ONVIF_FAULT_IF_UNKNOWN=1
     else
@@ -157,17 +167,17 @@ start_rtsp()
         echo "streams:" > /tmp/go2rtc.yaml
         if [ "$RTSP_RES" == "high" ] || [ "$RTSP_RES" == "both" ]; then
             echo "  ch0_0.h264:" >> /tmp/go2rtc.yaml
-            echo "    - exec:h264grabber -m $MODEL_SUFFIX $RTSP_G_STI -r high#backchannel=0" >> /tmp/go2rtc.yaml
+            echo "    - exec:h264grabber -p -m $MODEL_SUFFIX $RTSP_G_STI -r high#backchannel=0" >> /tmp/go2rtc.yaml
         fi
         if [ "$RTSP_RES" != "low" ] && [ "$RTSP_AUDIO" == "aac" ] ; then
-            echo "    - exec:h264grabber -m $MODEL_SUFFIX -r none -a#backchannel=0" >> /tmp/go2rtc.yaml
+            echo "    - exec:h264grabber -p -m $MODEL_SUFFIX -r none -a#backchannel=0" >> /tmp/go2rtc.yaml
         fi
         if [ "$RTSP_RES" == "low" ] || [ "$RTSP_RES" == "both" ]; then
             echo "  ch0_1.h264:" >> /tmp/go2rtc.yaml
-            echo "    - exec:h264grabber -m $MODEL_SUFFIX $RTSP_G_STI -r low#backchannel=0" >> /tmp/go2rtc.yaml
+            echo "    - exec:h264grabber -p -m $MODEL_SUFFIX $RTSP_G_STI -r low#backchannel=0" >> /tmp/go2rtc.yaml
         fi
         if [ "$RTSP_RES" == "low" ] && [ "$RTSP_AUDIO" == "aac" ] ; then
-            echo "    - exec:h264grabber -m $MODEL_SUFFIX -r none -a#backchannel=0" >> /tmp/go2rtc.yaml
+            echo "    - exec:h264grabber -p -m $MODEL_SUFFIX -r none -a#backchannel=0" >> /tmp/go2rtc.yaml
         fi
 
         echo "" >> /tmp/go2rtc.yaml
@@ -184,24 +194,24 @@ start_rtsp()
             echo "  password: \"$PASSWORD\"" >> /tmp/go2rtc.yaml
         fi
 
-        $RTSP_DAEMON -c /tmp/go2rtc.yaml -d
+        GOMEMLIMIT=4MiB $RTSP_DAEMON -c /tmp/go2rtc.yaml -d
     else
 
         if [[ $RTSP_RES == "low" ]]; then
             if [ "$RTSP_ALT" == "alternative" ]; then
-                h264grabber -m $MODEL_SUFFIX $RTSP_G_STI -r low $H264GRABBER_AUDIO -f &
+                h264grabber -p -m $MODEL_SUFFIX $RTSP_G_STI -r low $H264GRABBER_AUDIO -f &
                 sleep 1
             fi
             $RTSP_DAEMON -m $MODEL_SUFFIX -r low $RTSP_STI $RTSP_AUDIO_OPTION $P_RTSP_PORT $RTSP_USER $RTSP_PASSWORD $RTSP_AUDIO_BC &
         elif [[ $RTSP_RES == "high" ]]; then
             if [ "$RTSP_ALT" == "alternative" ]; then
-                h264grabber -m $MODEL_SUFFIX $RTSP_G_STI -r high $H264GRABBER_AUDIO -f &
+                h264grabber -p -m $MODEL_SUFFIX $RTSP_G_STI -r high $H264GRABBER_AUDIO -f &
                 sleep 1
             fi
             $RTSP_DAEMON -m $MODEL_SUFFIX -r high $RTSP_STI $RTSP_AUDIO_OPTION $P_RTSP_PORT $RTSP_USER $RTSP_PASSWORD $RTSP_AUDIO_BC &
         elif [[ $RTSP_RES == "both" ]]; then
             if [ "$RTSP_ALT" == "alternative" ]; then
-                h264grabber -m $MODEL_SUFFIX $RTSP_G_STI -r both $H264GRABBER_AUDIO -f &
+                h264grabber -p -m $MODEL_SUFFIX $RTSP_G_STI -r both $H264GRABBER_AUDIO -f &
                 sleep 1
             fi
             $RTSP_DAEMON -m $MODEL_SUFFIX -r both $RTSP_STI $RTSP_AUDIO_OPTION $P_RTSP_PORT $RTSP_USER $RTSP_PASSWORD $RTSP_AUDIO_BC &
@@ -268,6 +278,8 @@ start_onvif()
     echo "scope=onvif://www.onvif.org/hardware" >> $ONVIF_SRVD_CONF
     echo "scope=onvif://www.onvif.org/name" >> $ONVIF_SRVD_CONF
     echo "adv_enable_media2=$ONVIF_ENABLE_MEDIA2" >> $ONVIF_SRVD_CONF
+    echo "adv_enable_imaging=$ONVIF_ENABLE_IMAGING" >> $ONVIF_SRVD_CONF
+    echo "adv_empty_if_unknown=$ONVIF_EMPTY_IF_UNKNOWN" >> $ONVIF_SRVD_CONF
     echo "adv_fault_if_unknown=$ONVIF_FAULT_IF_UNKNOWN" >> $ONVIF_SRVD_CONF
     echo "adv_fault_if_set=$ONVIF_FAULT_IF_SET" >> $ONVIF_SRVD_CONF
     echo "adv_synology_nvr=$ONVIF_SYNOLOGY_NVR" >> $ONVIF_SRVD_CONF
@@ -452,7 +464,9 @@ if [ "$ACTION" == "start" ] ; then
     elif [ "$NAME" == "ftpd" ]; then
         start_ftpd $PARAM1
     elif [ "$NAME" == "mqtt" ]; then
-        if [ "$HV" == "11" ] || [ "$HV" == "12" ]; then
+        if [ "$(ps_program mqttv4)" == "started" ]; then
+            echo "mqttv4 already running"
+        elif [ "$HV" == "11" ] || [ "$HV" == "12" ]; then
             if [ "$MODEL_SUFFIX" != "y291ga" ] && [ "$MODEL_SUFFIX" != "y211ga" ] && [ "$MODEL_SUFFIX" != "y623" ]; then
                 mqttv4 -t local > /dev/null &
             else
