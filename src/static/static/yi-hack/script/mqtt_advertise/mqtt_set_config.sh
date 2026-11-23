@@ -2,13 +2,6 @@
 
 export LD_LIBRARY_PATH=/lib:/usr/lib:/home/lib:/home/qigan/lib:/home/app/locallib:/tmp/sd:/tmp/sd/gdb:/tmp/sd/yi-hack/lib
 
-# Fix "STDIN Wake": if there is no terminal (boot/cron), re-run the script
-if [ ! -t 0 ] && [ -z "$MQTT_STDIN_FIXED" ]; then
-    export MQTT_STDIN_FIXED=1
-    sleep 60 | "$0" "$@"
-    exit $?
-fi
-
 YI_HACK_PREFIX="/tmp/sd/yi-hack"
 
 CONFIG_SET="script/mqtt_advertise/mqtt_adv_config.sh"
@@ -33,6 +26,7 @@ MQTT_IP=$(get_config MQTT_IP)
 MQTT_PORT=$(get_config MQTT_PORT)
 MQTT_USER=$(get_config MQTT_USER)
 MQTT_PASSWORD=$(get_config MQTT_PASSWORD)
+MQTT_CLIENT_ID=$(get_config MQTT_CLIENT_ID)
 MQTT_TLS=$(get_config MQTT_TLS)
 MQTT_CA_CERT=$(get_config MQTT_CA_CERT)
 MQTT_CLIENT_CERT=$(get_config MQTT_CLIENT_CERT)
@@ -44,6 +38,9 @@ if [ ! -z $MQTT_PORT ]; then
 fi
 if [ ! -z $MQTT_USER ]; then
     HOST=$HOST' -u '$MQTT_USER' -w '$MQTT_PASSWORD
+fi
+if [ ! -z $MQTT_CLIENT_ID ]; then
+    CLIENT_ID=' -i '"$MQTT_CLIENT_ID"_adv_sub
 fi
 
 if [ "$MQTT_TLS" == "1" ]; then
@@ -83,7 +80,7 @@ MQTT_ADV_CAMERA_SETTING_TOPIC=$(get_mqtt_advertise_config MQTT_ADV_CAMERA_SETTIN
 TOPIC=$MQTT_PREFIX'/'$MQTT_ADV_CAMERA_SETTING_TOPIC'/+/set'
 
 while :; do
-$YI_HACK_PREFIX/bin/mqtt-sub -h $HOST $MQTT_TLS $MQTT_CA_CERT $MQTT_CLIENT_CERT $MQTT_CLIENT_KEY -n $TOPIC | while read -r SUBSCRIBED; do
+$YI_HACK_PREFIX/bin/mqtt-sub -T -h $HOST $CLIENT_ID $MQTT_TLS $MQTT_CA_CERT $MQTT_CLIENT_CERT $MQTT_CLIENT_KEY -n $TOPIC | while read -r SUBSCRIBED; do
     CONF_UPPER=$(echo $SUBSCRIBED | awk '{print $1}' | awk -F / '{ print $(NF-1)}')
     CONF=$(echo $CONF_UPPER | awk '{ print tolower($0) }')
     VAL=$(echo $SUBSCRIBED | awk '{print $2}')
